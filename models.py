@@ -11,6 +11,8 @@ import os
 from tqdm import tqdm
 from shutil import copyfile
 
+#fork
+
 class FlexibleNeRFModel(nn.Module):
     def __init__(
         self,
