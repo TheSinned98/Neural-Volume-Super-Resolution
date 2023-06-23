@@ -451,7 +451,7 @@ def calc_scene_box(scene_geometry,including_dirs,no_ndc,adjust_az_range=False,ad
             return end_pixels
 
     num_frames = len(scene_geometry['camera_poses'])
-    box = [[np.finfo(np.float).max,np.finfo(np.float).min] for i in range(3+2*including_dirs)]
+    box = [[np.finfo(np.float64).max,np.finfo(np.float64).min] for i in range(3+2*including_dirs)]
     for f_num in range(num_frames):
         origin_ = scene_geometry['camera_poses'][f_num][:3, -1]
         for col in list2pix([0,scene_geometry['W'][f_num]-1]):
