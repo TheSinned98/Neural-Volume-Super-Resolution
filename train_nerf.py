@@ -49,6 +49,7 @@ def main():
         device = "cuda"
     else:
         device = "cpu"
+
     
     # Read config file:
     assert configargs.config or configargs.load_checkpoint, 'Should specify path to either (or both) a configuration file or a pre-trained model to resume training.'
@@ -112,7 +113,6 @@ def main():
     load_saved_models = pretrained_model_folder is not None or resume_experiment
     only_planes_update = what2train==['LR_planes']
     init_new_scenes = not resume_experiment and ('LR_planes' in what2train) and (pretrained_model_folder is None or only_planes_update)
-    SR_experiment = "super_resolution" in cfg or (only_planes_update and "super_resolution" in pretrained_model_config)
 
     # Preparing dataset:
     dataset = BlenderDataset(config=cfg.dataset,scene_id_func=models.get_scene_id,
@@ -142,8 +142,6 @@ def main():
 
     # Assigning logging titles to different evaluation subsets:
     val_strings = []
-    ASSUME_LR_IF_NO_COUPLES = True
-    only_LR_eval = ASSUME_LR_IF_NO_COUPLES and (len(scene_coupler.downsample_couples)==0 and SR_experiment)
     for id in i_val:
         tags = []
         if id in val_only_scene_ids:    tags.append('blind_validation')
@@ -583,7 +581,7 @@ def main():
                         )
                         return rgb_c,rgb_f
 
-                    rgb_coarse_, rgb_fine_, rgb_SR_ = render_view()
+                    rgb_coarse_, rgb_fine_= render_view()
                     target_ray_values[val_strings[scene_num]].append(img_target[...,:3])
                     loss[val_strings[scene_num]].append(img2mse(rgb_fine_[..., :3], img_target[..., :3]).item())
                     
@@ -713,9 +711,6 @@ def main():
         if planes_model:
             planes_opt.cur_id = cur_scene_id
             planes_opt.zero_grad()
-        if hasattr(model_fine) and sr_iter and optimize_planes:
-            # Loading current feature planes to SR model to allow super-resolving them:
-            model_fine.assign_LR_planes(scene=cur_scene_id)
         # Rendering the chosen rays:
         rgb_coarse, _, acc_coarse, rgb_fine, _, acc_fine,_,_ = run_one_iter_of_nerf(
             cur_H,
@@ -767,9 +762,6 @@ def main():
         if last_v_batch_iter:
             if optimizer is not None:
                 decoder_step = 'decoder' not in dataset.module_confinements[cur_scene_id]
-                if 'SR' in what2train:
-                    if getattr(cfg.nerf.train,'separate_decoder_sr',False):
-                        decoder_step &= not sr_iter
                 if decoder_step:
                     optimizer.step()
         if not im_consistency_iter:
@@ -801,7 +793,7 @@ def main():
             loss = evaluate()
             evaluation_time = time.time()-start_time
             if planes_model and not eval_mode:
-                planes_opt.draw_scenes(assign_LR_planes=not SR_experiment or not optimize_planes)
+                planes_opt.draw_scenes(assign_LR_planes=True)
                 new_drawn_scenes = planes_opt.cur_scenes
                 image_sampler.update_active(new_drawn_scenes)
             elif not planes_model:
